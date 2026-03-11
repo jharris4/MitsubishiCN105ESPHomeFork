@@ -91,7 +91,9 @@ void CN105Climate::maybe_start_connection_() {
             ESP_LOGW(LOG_CONN_TAG, "Bootstrap connexion: timeout 120s, démarrage CN105 malgré tout");
             this->conn_bootstrap_started_ = true;
             this->setupUART();
-            this->sendFirstConnectionPacket();
+            this->set_timeout("cn105_first_connect", this->uart_reconnect_delay_ms_, [this]() {
+                this->sendFirstConnectionPacket();
+            });
             });
     }
 
@@ -119,7 +121,9 @@ void CN105Climate::maybe_start_connection_() {
     this->conn_bootstrap_started_ = true;
     ESP_LOGI(LOG_CONN_TAG, "Bootstrap connexion: init UART + envoi CONNECT (loop)");
     this->setupUART();
-    this->sendFirstConnectionPacket();
+    this->set_timeout("cn105_first_connect", this->uart_reconnect_delay_ms_, [this]() {
+        this->sendFirstConnectionPacket();
+    });
 }
 
 uint32_t CN105Climate::get_update_interval() const { return this->update_interval_; }
