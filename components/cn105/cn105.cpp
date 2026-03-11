@@ -424,6 +424,13 @@ void CN105Climate::force_low_level_uart_reinit() {
     cfg.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     cfg.rx_flow_ctrl_thresh = 0;
 
+    // Fixer la source d'horloge UART (bas débits peuvent être sensibles)
+#if defined(SOC_UART_SUPPORT_XTAL_CLK)
+    cfg.source_clk = UART_SCLK_XTAL;
+#else
+    cfg.source_clk = UART_SCLK_DEFAULT;
+#endif
+
     uart_param_config(port, &cfg);
 
     // Reconfigurer les pins si connues; sinon GPIO1/2 (Atom S3 yaml)
@@ -445,12 +452,6 @@ void CN105Climate::force_low_level_uart_reinit() {
     // Attendre que toute TX en cours finisse (si driver déjà installé)
     uart_wait_tx_done(port, pdMS_TO_TICKS(20));
 
-    // Fixer la source d'horloge UART (bas débits peuvent être sensibles)
-#if defined(UART_SCLK_XTAL)
-    uart_set_sclk(port, UART_SCLK_XTAL);
-#elif defined(UART_SCLK_APB)
-    uart_set_sclk(port, UART_SCLK_APB);
-#endif
     // Re-forcer explicitement le baud après sclk
     uart_set_baudrate(port, cfg.baud_rate);
 
