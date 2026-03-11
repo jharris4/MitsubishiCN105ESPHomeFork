@@ -113,6 +113,7 @@ CONF_REMOTE_TEMP_KEEPALIVE_INTERVAL = "remote_temperature_keepalive_interval"
 CONF_DEBOUNCE_DELAY = "debounce_delay"
 CONF_CONNECTION_BOOTSTRAP_DELAY = "connection_bootstrap_delay"
 CONF_INSTALLER_MODE = "installer_mode"
+CONF_UART_REINIT_ENABLED = "uart_reinit_enabled"
 
 # Définitions des classes C++ (identiques à votre version)
 VaneOrientationSelect = cg.global_ns.class_(
@@ -330,6 +331,7 @@ CONFIG_SCHEMA = (
                 cv.update_interval
             ),
             cv.Optional(CONF_INSTALLER_MODE, default=False): cv.boolean,
+            cv.Optional(CONF_UART_REINIT_ENABLED, default=True): cv.boolean,
             cv.Optional(
                 CONF_HP_UP_TIME_CONNECTION_SENSOR
             ): HP_UP_TIME_CONNECTION_SENSOR_SCHEMA,
@@ -371,6 +373,7 @@ def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID], uart_var)
 
     cg.add(var.set_installer_mode(config[CONF_INSTALLER_MODE]))
+    cg.add(var.set_uart_reinit_enabled(config[CONF_UART_REINIT_ENABLED]))
 
     cg.add(uart_var.set_data_bits(8))
     cg.add(uart_var.set_parity(UARTParityOptions.UART_CONFIG_PARITY_EVEN))
