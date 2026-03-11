@@ -115,6 +115,7 @@ CONF_CONNECTION_BOOTSTRAP_DELAY = "connection_bootstrap_delay"
 CONF_INSTALLER_MODE = "installer_mode"
 CONF_UART_REINIT_ENABLED = "uart_reinit_enabled"
 CONF_UART_RECONNECT_DELAY = "uart_reconnect_delay"
+CONF_FORCE_XTAL_CLOCK = "force_xtal_clock"
 
 # Définitions des classes C++ (identiques à votre version)
 VaneOrientationSelect = cg.global_ns.class_(
@@ -336,6 +337,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_UART_RECONNECT_DELAY, default="50ms"): cv.All(
                 cv.positive_time_period_milliseconds
             ),
+            cv.Optional(CONF_FORCE_XTAL_CLOCK, default=False): cv.boolean,
             cv.Optional(
                 CONF_HP_UP_TIME_CONNECTION_SENSOR
             ): HP_UP_TIME_CONNECTION_SENSOR_SCHEMA,
@@ -379,6 +381,7 @@ def to_code(config):
     cg.add(var.set_installer_mode(config[CONF_INSTALLER_MODE]))
     cg.add(var.set_uart_reinit_enabled(config[CONF_UART_REINIT_ENABLED]))
     cg.add(var.set_uart_reconnect_delay_ms(config[CONF_UART_RECONNECT_DELAY].total_milliseconds))
+    cg.add(var.set_force_xtal_clock(config[CONF_FORCE_XTAL_CLOCK]))
 
     cg.add(uart_var.set_data_bits(8))
     cg.add(uart_var.set_parity(UARTParityOptions.UART_CONFIG_PARITY_EVEN))

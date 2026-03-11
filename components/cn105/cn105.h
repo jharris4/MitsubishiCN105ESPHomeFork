@@ -153,6 +153,7 @@ namespace esphome {
         void set_uart_port(int uart_port) { this->uart_port_ = uart_port; }
         void set_uart_reinit_enabled(bool enabled) { this->uart_reinit_enabled_ = enabled; }
         void set_uart_reconnect_delay_ms(uint32_t ms) { this->uart_reconnect_delay_ms_ = ms; }
+        void set_force_xtal_clock(bool enabled) { this->force_xtal_clock_ = enabled; }
         //void set_wifi_connected_state(bool state);
         void setupUART();
         void disconnectUART();
@@ -323,8 +324,10 @@ namespace esphome {
 
     private:
         void force_low_level_uart_reinit();
+        void apply_uart_xtal_clock_();
         int uart_port_ = -1;
         bool uart_reinit_enabled_ = true;
+        bool force_xtal_clock_ = false;
         uint32_t uart_reconnect_delay_ms_ = 50;
         const char* lookupByteMapValue(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "", const char* defaultValue = nullptr);
         int lookupByteMapValue(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue, const char* debugInfo = "");

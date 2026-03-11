@@ -334,6 +334,9 @@ void CN105Climate::setupUART() {
         while (this->available()) { this->read_byte(&discard); drained++; }
         // D -> I
         if (drained > 0) ESP_LOGI(LOG_CONN_TAG, "setupUART(): drained %d stale RX bytes", drained);
+        if (this->force_xtal_clock_) {
+            this->apply_uart_xtal_clock_();
+        }
     } else {
         ESP_LOGW(LOG_CONN_TAG, "UART n'est pas configuré en SERIAL_8E1");
     }
@@ -493,5 +496,33 @@ void CN105Climate::force_low_level_uart_reinit() {
     ESP_LOGI(TAG, "UART effective baud=%lu tx_pin=%d rx_pin=%d", (unsigned long)eff_baud, this->tx_pin_, this->rx_pin_);
 #else
     // Pas d’ESP32: rien à faire
+#endif
+}
+
+void CN105Climate::apply_uart_xtal_clock_() {
+#if defined(USE_ESP32) && defined(SOC_UART_SUPPORT_XTAL_CLK)
+    const uart_port_t port = (this->uart_port_ == 1) ? UART_NUM_1 :
+#ifdef UART_NUM_2
+    (this->uart_port_ == 2) ? UART_NUM_2 :
+#endif
+        UART_NUM_0;
+
+    uart_config_t cfg = {};
+    cfg.baud_rate = this->parent_ ? (int)this->parent_->get_baud_rate() : 2400;
+    cfg.data_bits = UART_DATA_8_BITS;
+    cfg.parity = UART_PARITY_EVEN;
+    cfg.stop_bits = UART_STOP_BITS_1;
+    cfg.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    cfg.rx_flow_ctrl_thresh = 0;
+    cfg.source_clk = UART_SCLK_XTAL;
+
+    esp_err_t err = uart_param_config(port, &cfg);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "apply_uart_xtal_clock_: uart_param_config failed: %s", esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "apply_uart_xtal_clock_: UART_SCLK_XTAL applied on port %d", (int)port);
+    }
+#else
+    ESP_LOGD(TAG, "apply_uart_xtal_clock_: no-op (SOC_UART_SUPPORT_XTAL_CLK not defined)");
 #endif
 }
