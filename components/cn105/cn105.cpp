@@ -46,6 +46,9 @@ CN105Climate::CN105Climate(uart::UARTComponent* uart) :
     this->lastSend = 0;
     this->infoMode = 0;
     this->lastConnectRqTimeMs = 0;
+    this->lastReconnectTimeMs = 0;
+    this->lastResponseMs = 0;
+    this->data = nullptr;
     this->currentStatus.operating = false;
     this->currentStatus.compressorFrequency = NAN;
     this->currentStatus.inputPower = NAN;
@@ -324,6 +327,13 @@ void CN105Climate::setupUART() {
         ESP_LOGI(LOG_CONN_TAG, "UART configuré en SERIAL_8E1");
         this->isUARTConnected_ = true;
         this->initBytePointer();
+        // Drain any bytes that accumulated in the RX buffer during boot/reinit
+        // before sending the first CONNECT packet, to avoid confusing the parser.
+        uint8_t discard;
+        int drained = 0;
+        while (this->available()) { this->read_byte(&discard); drained++; }
+        // D -> I
+        if (drained > 0) ESP_LOGI(LOG_CONN_TAG, "setupUART(): drained %d stale RX bytes", drained);
     } else {
         ESP_LOGW(LOG_CONN_TAG, "UART n'est pas configuré en SERIAL_8E1");
     }
@@ -343,7 +353,8 @@ void CN105Climate::setHeatpumpConnected(bool state) {
     }
 }
 void CN105Climate::disconnectUART() {
-    ESP_LOGD(TAG, "disconnectUART()");
+    // D -> I
+    ESP_LOGI(TAG, "disconnectUART()");
     this->uart_setup_switch = false;
     this->setHeatpumpConnected(false);
     //this->isHeatpumpConnected_ = false;
@@ -354,14 +365,18 @@ void CN105Climate::disconnectUART() {
 }
 
 void CN105Climate::reconnectUART() {
-    ESP_LOGD(TAG, "reconnectUART()");
+    // D -> I
+    ESP_LOGI(TAG, "reconnectUART()");
     this->lastReconnectTimeMs = CUSTOM_MILLIS;
     this->disconnectUART();
     if (this->uart_reinit_enabled_) {
         this->force_low_level_uart_reinit();
     }
     this->setupUART();
-    this->sendFirstConnectionPacket();
+    // Defer the first CONNECT packet to let the UART line settle after reinit/pin reset.
+    this->set_timeout("cn105_reconnect_send", this->uart_reconnect_delay_ms_, [this]() {
+        this->sendFirstConnectionPacket();
+    });
 }
 
 
@@ -433,6 +448,8 @@ void CN105Climate::force_low_level_uart_reinit() {
 
     uart_param_config(port, &cfg);
 
+    ESP_LOGI(TAG, "Forcing low-level UART reinit A");
+
     // Reconfigurer les pins si connues; sinon GPIO1/2 (Atom S3 yaml)
     int tx = (this->tx_pin_ >= 0) ? this->tx_pin_ : 1;
     int rx = (this->rx_pin_ >= 0) ? this->rx_pin_ : 2;
@@ -443,6 +460,7 @@ void CN105Climate::force_low_level_uart_reinit() {
 
     // RX idle high: assurer un pull-up (utile à bas débit/8E1)
     if (this->rx_pin_ >= 0) {
+        ESP_LOGI(TAG, "Forcing low-level UART reinit Setting pullup");
         gpio_set_pull_mode((gpio_num_t)this->rx_pin_, GPIO_PULLUP_ONLY);
     }
 
@@ -459,6 +477,8 @@ void CN105Climate::force_low_level_uart_reinit() {
     uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE);
     uart_set_hw_flow_ctrl(port, UART_HW_FLOWCTRL_DISABLE, 0);
 
+    ESP_LOGI(TAG, "Forcing low-level UART reinit B");
+
     // Timeout RX court pour vider rapidement
     uart_set_rx_timeout(port, 2);
 
@@ -469,7 +489,8 @@ void CN105Climate::force_low_level_uart_reinit() {
     // Diagnostics
     uint32_t eff_baud = 0;
     uart_get_baudrate(port, &eff_baud);
-    ESP_LOGD(TAG, "UART effective baud=%lu tx_pin=%d rx_pin=%d", (unsigned long)eff_baud, this->tx_pin_, this->rx_pin_);
+    // D -> I
+    ESP_LOGI(TAG, "UART effective baud=%lu tx_pin=%d rx_pin=%d", (unsigned long)eff_baud, this->tx_pin_, this->rx_pin_);
 #else
     // Pas d’ESP32: rien à faire
 #endif
