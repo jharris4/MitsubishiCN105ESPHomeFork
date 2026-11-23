@@ -104,6 +104,8 @@ namespace esphome {
             }
         }
         void set_vane_type(VaneType type) { this->vane_type_ = type; }
+        // Number of manual fan speeds (supports.fan_speeds): 4 (default) or 3.
+        void set_fan_speeds(int fan_speeds) { this->fan_speeds_ = fan_speeds; }
 
         void set_functions_sensor(esphome::text_sensor::TextSensor* Functions_sensor);
         void set_functions_get_button(FunctionsButton* Button);
@@ -524,6 +526,7 @@ namespace esphome {
         bool supports_dual_setpoint_ = false;
         int horizontal_vanes_{ 1 }; // Kept for legacy logging if needed, or can be removed if unused.
         VaneType vane_type_{ VaneType::STANDARD };
+        int fan_speeds_{ 4 };
 
         // --- HEAT_COOL setpoint persistence (opt-in via supports.restore_setpoints) ---
         // The dual-setpoint band is synthetic (the heat pump only stores a single setpoint),

@@ -161,6 +161,32 @@ struct HeatPumpProtocol {
             wanted.last_user_vane_ms = now;
         }
     }
+    // Fan setting (FAN_MAP entry) to send for a climate fan mode. fan_speeds is the unit's
+    // number of manual speeds (supports.fan_speeds): 4 sends HIGH as "4"; 3 sends HIGH (and
+    // MIDDLE, which is not offered then) as "3", the unit's top speed. OFF is handled by the caller.
+    static const char* fan_setting(climate::ClimateFanMode mode, int fan_speeds) {
+        switch (mode) {
+            case climate::CLIMATE_FAN_QUIET:
+            case climate::CLIMATE_FAN_DIFFUSE: return FAN_MAP[1];
+            case climate::CLIMATE_FAN_LOW: return FAN_MAP[2];
+            case climate::CLIMATE_FAN_MEDIUM: return FAN_MAP[3];
+            case climate::CLIMATE_FAN_MIDDLE: return FAN_MAP[4];
+            case climate::CLIMATE_FAN_HIGH: return fan_speeds == 3 ? FAN_MAP[4] : FAN_MAP[5];
+            default: return FAN_MAP[0];
+        }
+    }
+    // Climate fan mode for a reported fan setting. With 3 speeds, "3" and "4" both run the
+    // unit's top speed and report as HIGH; with 4, "3" is MIDDLE. Unknown or null is AUTO.
+    static climate::ClimateFanMode fan_mode(const char* setting, int fan_speeds) {
+        if (setting == nullptr) return climate::CLIMATE_FAN_AUTO;
+        if (std::strcmp(setting, "QUIET") == 0) return climate::CLIMATE_FAN_QUIET;
+        if (std::strcmp(setting, "1") == 0) return climate::CLIMATE_FAN_LOW;
+        if (std::strcmp(setting, "2") == 0) return climate::CLIMATE_FAN_MEDIUM;
+        if (std::strcmp(setting, "3") == 0)
+            return fan_speeds == 3 ? climate::CLIMATE_FAN_HIGH : climate::CLIMATE_FAN_MIDDLE;
+        if (std::strcmp(setting, "4") == 0) return climate::CLIMATE_FAN_HIGH;
+        return climate::CLIMATE_FAN_AUTO;
+    }
     static const char* vane_for_packet(const wantedHeatpumpSettings& wanted) {
         return wanted.vane != nullptr ? wanted.vane : wanted.last_user_vane;
     }

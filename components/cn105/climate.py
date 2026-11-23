@@ -111,6 +111,7 @@ CONF_SUPPORTS = "supports"
 CONF_SUPPORTS_HORIZONTAL_VANE_MODE = "horizontal_vane_mode"
 CONF_HORIZONTAL_VANES = "horizontal_vanes"
 CONF_VANE_TYPE = "vane_type"
+CONF_FAN_SPEEDS = "fan_speeds"
 
 VANE_TYPES = {
     "standard": 0,
@@ -161,6 +162,8 @@ CONF_RESTORE_SETPOINTS = "restore_setpoints"
 
 DEFAULT_CLIMATE_MODES = ["AUTO", "COOL", "HEAT", "DRY", "FAN_ONLY", "HEAT_COOL"]
 DEFAULT_FAN_MODES = ["AUTO", "MIDDLE", "QUIET", "LOW", "MEDIUM", "HIGH"]
+# Units with three manual speeds (supports.fan_speeds: 3), such as those driven by an MHK2
+THREE_SPEED_FAN_MODES = ["AUTO", "LOW", "MEDIUM", "HIGH"]
 DEFAULT_SWING_MODES = ["OFF", "VERTICAL", "HORIZONTAL", "BOTH"]
 
 FAHRENHEIT_MODES = {
@@ -503,6 +506,9 @@ def validate_lossnay_config(config):
     if supports.get(CONF_VANE_TYPE, "standard") != "standard":
         raise cv.Invalid("lossnay does not support vane types")
 
+    if supports.get(CONF_FAN_SPEEDS, 4) != 4:
+        raise cv.Invalid("lossnay does not support fan_speeds")
+
     return config
 
 CONFIG_SCHEMA = (
@@ -600,6 +606,9 @@ CONFIG_SCHEMA = (
                     cv.Optional(CONF_VANE_TYPE, default="standard"): cv.enum(
                         VANE_TYPES, lower=True
                     ),
+                    cv.Optional(CONF_FAN_SPEEDS, default=4): cv.int_range(
+                        min=3, max=4
+                    ),
                 }
             ),
         }
@@ -607,7 +616,16 @@ CONFIG_SCHEMA = (
     .extend(cv.COMPONENT_SCHEMA)
 )
 
-CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, validate_lossnay_config)
+def validate_fan_speeds(config):
+    supports = config.get(CONF_SUPPORTS, {})
+    if supports.get(CONF_FAN_SPEEDS, 4) == 3 and "MIDDLE" in supports.get(CONF_FAN_MODE, []):
+        raise cv.Invalid(
+            "fan_speeds: 3 sends HIGH as the unit's top speed; remove MIDDLE from fan_mode"
+        )
+    return config
+
+
+CONFIG_SCHEMA = cv.All(CONFIG_SCHEMA, validate_lossnay_config, validate_fan_speeds)
 
 
 @coroutine
@@ -688,10 +706,15 @@ def to_code(config):
         # ESPHome's default behavior for modes like COOL/HEAT is to enable single-point target temperature.
         # We don't need to explicitly force single-point or clear the dual flag (it's off by default).
 
-        for fan_mode_str in supports.get(
-            CONF_FAN_MODE,
-            LOSSNAY_FAN_MODES if config[CONF_LOSSNAY] else DEFAULT_FAN_MODES,
-        ):
+        fan_speeds = supports.get(CONF_FAN_SPEEDS, 4)
+        cg.add(var.set_fan_speeds(fan_speeds))
+        if config[CONF_LOSSNAY]:
+            default_fan_modes = LOSSNAY_FAN_MODES
+        elif fan_speeds == 3:
+            default_fan_modes = THREE_SPEED_FAN_MODES
+        else:
+            default_fan_modes = DEFAULT_FAN_MODES
+        for fan_mode_str in supports.get(CONF_FAN_MODE, default_fan_modes):
             if fan_mode_str in climate.CLIMATE_FAN_MODES:
                 cg.add(
                     traits.add_supported_fan_mode(

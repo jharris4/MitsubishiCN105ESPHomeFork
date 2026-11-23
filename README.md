@@ -1317,6 +1317,29 @@ Some units (e.g. MSZ-LN, MSZ-FH, MSZ-EF) have separate left and right vertical v
 
 `vane_type: split_vertical` is accepted for now, but it has no effect and ESPHome prints a warning when it is used. If you have a dual vertical vane unit and want to help, turn on [raw packet logging](#raw-packet-logging), move each vane with the remote, and share the logs in [Issue #505](https://github.com/echavet/MitsubishiCN105ESPHome/issues/505).
 
+### Three-Speed Fan Units
+
+The component assumes four manual fan speeds (`1`–`4`), reported as `low`, `medium`, `middle` and `high`. Some units, for example ducted units driven by an MHK2 wall control, have only three speeds plus Auto: the MHK2's 1, 2 and 3 bars send `1`, `2` and `3`, so its top speed shows as `middle`, and `high` (`4`) runs the same stage as `3` (see [Issue #262](https://github.com/echavet/MitsubishiCN105ESPHome/issues/262)).
+
+Set `fan_speeds: 3` in the `supports` block for these units:
+
+| `fan_speeds`  | `high` sends | Unit `3` reports as | Unit `4` reports as | Default `fan_mode` list               |
+| ------------- | ------------ | ------------------- | ------------------- | ------------------------------------- |
+| `4` (default) | `4`          | `middle`            | `high`              | AUTO, MIDDLE, QUIET, LOW, MEDIUM, HIGH |
+| `3`           | `3`          | `high`              | `high`              | AUTO, LOW, MEDIUM, HIGH               |
+
+```yaml
+climate:
+  - platform: cn105
+    name: "My Heat Pump"
+    # ... your existing config ...
+    supports:
+      fan_speeds: 3 # ← low/medium/high match the remote's 1/2/3; no middle
+      # fan_mode: [AUTO, QUIET, LOW, MEDIUM, HIGH] # optional, to add QUIET
+```
+
+With `fan_speeds: 3`, `MIDDLE` cannot be listed in `fan_mode`. Lossnay units do not support this option.
+
 ## Comparison with ESPHome Native `mitsubishi_cn105`
 
 Since ESPHome 2026.4.0, a native `mitsubishi_cn105` component (by [@crnjan](https://github.com/crnjan)) is available directly in the ESPHome core. Both projects implement the same CN105 serial protocol originally reverse-engineered by [SwiCago](https://github.com/SwiCago/HeatPump). This section helps you decide which one fits your needs.

@@ -1085,34 +1085,11 @@ void HeatPumpProfile::encode_run_states(uint8_t* packet) {
 
 void HeatPumpProfile::control_fan() {
 
-    switch (hp_.fan_mode.value()) {
-    case climate::CLIMATE_FAN_OFF:
+    if (hp_.fan_mode.value() == climate::CLIMATE_FAN_OFF) {
         hp_.setPowerSetting("OFF");
-        break;
-    case climate::CLIMATE_FAN_QUIET:
-        hp_.setFanSpeed("QUIET");
-        break;
-    case climate::CLIMATE_FAN_DIFFUSE:
-        hp_.setFanSpeed("QUIET");
-        break;
-    case climate::CLIMATE_FAN_LOW:
-        hp_.setFanSpeed("1");
-        break;
-    case climate::CLIMATE_FAN_MEDIUM:
-        hp_.setFanSpeed("2");
-        break;
-    case climate::CLIMATE_FAN_MIDDLE:
-        hp_.setFanSpeed("3");
-        break;
-    case climate::CLIMATE_FAN_HIGH:
-        hp_.setFanSpeed("4");
-        break;
-    case climate::CLIMATE_FAN_ON:
-    case climate::CLIMATE_FAN_AUTO:
-    default:
-        hp_.setFanSpeed("AUTO");
-        break;
+        return;
     }
+    hp_.setFanSpeed(HeatPumpProtocol::fan_setting(hp_.fan_mode.value(), hp_.fan_speeds_));
 }
 
 void HeatPumpProfile::reconcile_fan(heatpumpSettings& settings, bool updateCurrentSettings) {
@@ -1129,19 +1106,7 @@ void HeatPumpProfile::reconcile_fan(heatpumpSettings& settings, bool updateCurre
             hp_.currentSettings.fan = settings.fan;
         }
 
-        if (strcmp(settings.fan, "QUIET") == 0) {
-            hp_.fan_mode = climate::CLIMATE_FAN_QUIET;
-        } else if (strcmp(settings.fan, "1") == 0) {
-            hp_.fan_mode = climate::CLIMATE_FAN_LOW;
-        } else if (strcmp(settings.fan, "2") == 0) {
-            hp_.fan_mode = climate::CLIMATE_FAN_MEDIUM;
-        } else if (strcmp(settings.fan, "3") == 0) {
-            hp_.fan_mode = climate::CLIMATE_FAN_MIDDLE;
-        } else if (strcmp(settings.fan, "4") == 0) {
-            hp_.fan_mode = climate::CLIMATE_FAN_HIGH;
-        } else { //case "AUTO" or default:
-            hp_.fan_mode = climate::CLIMATE_FAN_AUTO;
-        }
+        hp_.fan_mode = HeatPumpProtocol::fan_mode(settings.fan, hp_.fan_speeds_);
         if (hp_.fan_mode.has_value()) {
             ESP_LOGD(TAG, "Fan mode is: %i", static_cast<int>(hp_.fan_mode.value()));
         } else {
